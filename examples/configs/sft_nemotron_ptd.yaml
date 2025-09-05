@@ -1,0 +1,102 @@
+# SFT on Nemotron Post-Training SFT dataset
+sft:
+  max_num_epochs: 1
+  max_num_steps: 60
+
+  val_period: 10
+  val_batches: 8
+  val_global_batch_size: 32
+  val_micro_batch_size: 1
+  val_at_start: true
+  seed: 42
+
+checkpointing:
+  enabled: true
+  checkpoint_dir: "/shashankv/exp-results/nemorl-sft/sft_openmathinstruct2"
+  metric_name: "val_loss"
+  higher_is_better: false
+  keep_top_k: 3
+  save_period: 10
+  checkpoint_must_save_by: null
+
+policy:
+  model_name: "meta-llama/Llama-3.2-1B"
+  tokenizer:
+    name: nvidia/Llama-3_3-Nemotron-Super-49B-v1_5
+    # name: meta-llama/Llama-3.2-1B-Instruct ## specify if you'd like to use a tokenizer different from the model's default
+  train_global_batch_size: 512
+  train_micro_batch_size: 2
+  max_total_sequence_length: 4096
+  precision: "bfloat16"
+
+  dtensor_cfg:
+    enabled: true
+    cpu_offload: False
+    sequence_parallel: false
+    activation_checkpointing: false
+    tensor_parallel_size: 1
+    context_parallel_size: 1
+    custom_parallel_plan: null
+
+  dynamic_batching:
+    enabled: false
+
+  sequence_packing:
+    enabled: False
+    train_mb_tokens: ${mul:${policy.max_total_sequence_length}, ${policy.train_micro_batch_size}}
+    algorithm: "modified_first_fit_decreasing"
+    sequence_length_round: 64
+
+  make_sequence_length_divisible_by: ${policy.dtensor_cfg.tensor_parallel_size}
+  max_grad_norm: 1.0
+
+  optimizer:
+    name: "torch.optim.AdamW"
+    kwargs:
+      lr: 5.0e-6
+      weight_decay: 0.1
+      betas: [0.9, 0.98]
+      eps: 1e-5
+      foreach: False
+      fused: False
+
+data:
+  max_input_seq_length: ${policy.max_total_sequence_length}
+  dataset_name: "nemotron_sft"
+  add_bos: true
+  add_eos: true
+  add_generation_prompt: false
+  shuffle: true
+  # Choose one or more Nemotron subsets (one of: ["chat", "code", "math", "stem", "tool_calling"]) e.g., ["math"], ["code", "math"]
+  subsets: ["math"]
+  # Optional: apply an additional prompt prefix from file
+  prompt_file: examples/prompts/math.txt
+  # Optional: holdout fraction for validation split
+  test_size: 0.05
+  # Optional: Hugging Face datasets cache directory
+  cache_dir: "/shashankv/data-cache"
+  # Optional: quick experiments limit
+  max_samples: 10000 # remove this line to use all data
+
+logger:
+  log_dir: "logs"
+  wandb_enabled: true
+  tensorboard_enabled: true
+  mlflow_enabled: false
+  monitor_gpus: true
+  num_val_samples_to_print: 0
+  wandb:
+    project: "sft-nemotron-ptd-math-sft"
+    name: "sft-nemotron-sft-${data.subsets}"
+  tensorboard:
+    log_dir: "tb_logs-sft-nemotron-sft-${data.subsets}"
+  mlflow:
+    experiment_name: "sft-nemotron-sft"
+    run_name: "sft-nemotron-sft-${data.subsets}"
+  gpu_monitoring:
+    collection_interval: 10
+    flush_interval: 10
+
+cluster:
+  gpus_per_node: 8
+  num_nodes: 1

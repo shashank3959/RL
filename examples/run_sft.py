@@ -130,6 +130,15 @@ def setup_data(tokenizer: AutoTokenizer, data_config: DataConfig, seed: int):
             data_config["system_key"],
             data_config["system_prompt"],
         )
+    elif data_cls == "nemotron_sft":
+        data = hf_datasets.NemotronSFTDataset(
+            subsets=data_config.get("subsets", ["math"]),
+            prompt_file=data_config.get("prompt_file"),
+            seed=seed,
+            test_size=data_config.get("test_size", 0.05),
+            cache_dir=data_config.get("cache_dir"),
+            max_samples=data_config.get("max_samples"),
+        )
     elif data_cls == "clevr_cogent":
         from nemo_rl.data.hf_datasets.clevr import format_clevr_cogent_dataset
 
