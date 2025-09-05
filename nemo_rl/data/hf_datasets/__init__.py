@@ -20,6 +20,7 @@ from nemo_rl.data.hf_datasets.oai_format_dataset import OpenAIFormatDataset
 from nemo_rl.data.hf_datasets.oasst import OasstDataset
 from nemo_rl.data.hf_datasets.openmathinstruct2 import OpenMathInstruct2Dataset
 from nemo_rl.data.hf_datasets.preference_dataset import PreferenceDataset
+from nemo_rl.data.hf_datasets.nemotron_sft import NemotronSFTDataset
 from nemo_rl.data.hf_datasets.prompt_response_dataset import (
     PromptResponseDataset,
 )
@@ -32,6 +33,7 @@ __all__ = [
     "OasstDataset",
     "OpenAIFormatDataset",
     "OpenMathInstruct2Dataset",
+    "NemotronSFTDataset",
     "PreferenceDataset",
     "PromptResponseDataset",
     "SquadDataset",
