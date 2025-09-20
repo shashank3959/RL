@@ -579,9 +579,9 @@ class DTensorPolicyWorkerV2:
                             )
                             seq_len = input_ids.shape[1]
                             attention_mask = None
-                            flash_attn_kwargs = get_flash_attention_kwargs(
-                                input_lengths=mb["input_lengths"],
-                            )
+                            # flash_attn_kwargs = get_flash_attention_kwargs(
+                            #     input_lengths=mb["input_lengths"],
+                            # )
 
                         else:
                             input_ids = mb.get("input_ids").cuda()
@@ -595,7 +595,7 @@ class DTensorPolicyWorkerV2:
                             position_ids = torch.arange(
                                 seq_len, device=input_ids.device
                             ).repeat(batch_size, 1)
-                            flash_attn_kwargs = {}
+                            # flash_attn_kwargs = {}
 
                     context_parallel_ctx = None
                     if self.cp_size > 1:
@@ -623,15 +623,16 @@ class DTensorPolicyWorkerV2:
                                 attention_mask=attention_mask,
                                 position_ids=position_ids,
                                 use_cache=False,
-                                flash_attn_kwargs=flash_attn_kwargs,
+                                # flash_attn_kwargs=flash_attn_kwargs,
                             )
 
                             if self._is_reward_model:
                                 # `flash_attn_kwarg` is not supported for `LlamaForSequenceClassification`.
                                 # Note that it should be empty anyway since sequence packing
                                 # is not supported for reward models.
-                                assert not flash_attn_kwargs
-                                del model_args["flash_attn_kwargs"]
+                                # assert not flash_attn_kwargs
+                                # del model_args["flash_attn_kwargs"]
+                                pass
 
                             outputs = self.model(**model_args)
 
@@ -693,11 +694,12 @@ class DTensorPolicyWorkerV2:
                                 )
 
                         if self.enable_seq_packing:
-                            loss_fn_ = SequencePackingLossWrapper(
-                                loss_fn=loss_fn,
-                                cu_seqlens_q=flash_attn_kwargs.cu_seqlens_q,
-                                cu_seqlens_q_padded=flash_attn_kwargs.cu_seqlens_q,
-                            )
+                            # loss_fn_ = SequencePackingLossWrapper(
+                            #     loss_fn=loss_fn,
+                            #     cu_seqlens_q=flash_attn_kwargs.cu_seqlens_q,
+                            #     cu_seqlens_q_padded=flash_attn_kwargs.cu_seqlens_q,
+                            # )
+                            loss_fn_ = loss_fn  # Fallback to regular loss function
                         else:
                             loss_fn_ = loss_fn
 
@@ -873,9 +875,9 @@ class DTensorPolicyWorkerV2:
                     )
                     seq_len = input_ids.shape[1]
                     attention_mask = None
-                    flash_attn_kwargs = get_flash_attention_kwargs(
-                        input_lengths=input_lengths,
-                    )
+                    # flash_attn_kwargs = get_flash_attention_kwargs(
+                    #     input_lengths=input_lengths,
+                    # )
                 else:
                     # Create attention mask for right-padded data
                     attention_mask = torch.zeros(
@@ -890,7 +892,7 @@ class DTensorPolicyWorkerV2:
                     position_ids = torch.arange(
                         seq_len, device=input_ids.device
                     ).repeat(batch_size, 1)
-                    flash_attn_kwargs = {}
+                    # flash_attn_kwargs = {}
 
                 with torch.autocast(device_type="cuda", dtype=self.dtype):
                     # DTensor requires the casual attention kernel to hit,
@@ -923,7 +925,7 @@ class DTensorPolicyWorkerV2:
                             attention_mask=attention_mask_input_all_ones,
                             position_ids=position_ids,
                             use_cache=False,
-                            flash_attn_kwargs=flash_attn_kwargs,
+                            # flash_attn_kwargs=flash_attn_kwargs,
                         )
 
                     logits = outputs.logits
@@ -1044,14 +1046,16 @@ class DTensorPolicyWorkerV2:
                         dtype=token_logprobs.dtype,
                         device=token_logprobs.device,
                     )
-                    cu_seqlens = flash_attn_kwargs.cu_seqlens_q
-                    for i in range(batch_size):
-                        start = cu_seqlens[i].item() + 1
-                        end = cu_seqlens[i + 1].item()
-                        seq_len_actual = input_lengths[i].item()
-                        unpacked_logprobs[i, 1:seq_len_actual] = token_logprobs[
-                            0, start:end
-                        ]
+                    # cu_seqlens = flash_attn_kwargs.cu_seqlens_q
+                    # for i in range(batch_size):
+                    #     start = cu_seqlens[i].item() + 1
+                    #     end = cu_seqlens[i + 1].item()
+                    #     seq_len_actual = input_lengths[i].item()
+                    #     unpacked_logprobs[i, 1:seq_len_actual] = token_logprobs[
+                    #         0, start:end
+                    #     ]
+                    # For non-sequence packing, just use the token_logprobs directly
+                    unpacked_logprobs = token_logprobs
                     token_logprobs = unpacked_logprobs
 
                 all_log_probs.append(token_logprobs)

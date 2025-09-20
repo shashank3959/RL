@@ -147,6 +147,14 @@ def setup_data(tokenizer: AutoTokenizer, data_config: DataConfig, seed: int):
             prompt_file=data_config["prompt_file"],
         )
         datum_preprocessor = partial(format_clevr_cogent_dataset, return_pil=True)
+        
+    elif data_cls == "tulu3_sft_mixture":
+        data = hf_datasets.Tulu3SftMixtureDataset(
+            seed=seed,
+            test_size=data_config.get("test_size", 0.05),
+            prompt_file=data_config.get("prompt_file"),
+            max_samples=data_config.get("max_samples"),
+        )
     else:
         raise ValueError(f"Unknown dataset class: {data_cls}")
     print(
