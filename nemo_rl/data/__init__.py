@@ -30,9 +30,11 @@ class DataConfig(TypedDict):
     split: NotRequired[str]
     shuffle: NotRequired[bool]
     seed: NotRequired[int]
+    test_size: NotRequired[float]
     download_dir: NotRequired[str]
     train_data_path: NotRequired[str]
     val_data_paths: NotRequired[dict[str, str]]
+    max_samples: NotRequired[int]
 
 
 class MathDataConfig(DataConfig):

@@ -1,0 +1,106 @@
+# SFT on Tulu3-SFT-Mixture dataset
+sft:
+  max_num_epochs: 3
+  max_num_steps: 60
+
+  val_period: 10
+  val_batches: 8
+  val_global_batch_size: 64
+  val_micro_batch_size: 1
+  val_at_start: true
+  seed: 42
+
+checkpointing:
+  enabled: true
+  checkpoint_dir: "/lustre/fsw/portfolios/coreai/users/shashankv/exp-results/nemorl-sft-super49b"
+  metric_name: "val_loss"
+  higher_is_better: false
+  keep_top_k: 3
+  save_period: 10
+  checkpoint_must_save_by: null
+
+policy:
+  model_name: "/lustre/fsw/portfolios/coreai/users/shashankv/models/llama-3_3-nemotron-49b-instruct-128k-v1_2-hf"
+  tokenizer:
+    name: nvidia/Llama-3_3-Nemotron-Super-49B-v1_5
+  max_total_sequence_length: 4096
+  precision: "bfloat16"
+  train_global_batch_size: 64
+  train_micro_batch_size: 1
+  logprob_batch_size: 1
+  logprob_chunk_size: null
+
+
+  dtensor_cfg:
+    _v2: true
+    activation_checkpointing: true
+    context_parallel_size: 1
+    cpu_offload: false
+    enabled: true
+    sequence_parallel: false
+    tensor_parallel_size: 8
+    custom_parallel_plan: examples.configs.recipes.llm.llama_nemotron_super_49b_custom_plan.custom_parallel_plan
+
+  megatron_cfg:
+    enabled: false
+
+  dynamic_batching:
+    enabled: True
+    train_mb_tokens: ${mul:${policy.max_total_sequence_length}, ${policy.train_micro_batch_size}}
+    logprob_mb_tokens: ${mul:${policy.max_total_sequence_length}, ${policy.logprob_batch_size}}
+    sequence_length_round: 64
+
+  sequence_packing:
+    enabled: False
+    train_mb_tokens: ${mul:${policy.max_total_sequence_length}, ${policy.train_micro_batch_size}}
+    logprob_mb_tokens: ${mul:${policy.max_total_sequence_length}, ${policy.logprob_batch_size}}
+    algorithm: "modified_first_fit_decreasing"
+    sequence_length_round: 64
+
+  make_sequence_length_divisible_by: ${policy.dtensor_cfg.tensor_parallel_size}
+  max_grad_norm: 1.0
+
+  optimizer:
+    name: "torch.optim.AdamW"
+    kwargs:
+      lr: 5.0e-6
+      weight_decay: 0.1
+      betas: [0.9, 0.98]
+      eps: 1e-5
+      foreach: False
+      fused: False
+
+data:
+  max_input_seq_length: ${policy.max_total_sequence_length}
+  dataset_name: "tulu3_sft_mixture"
+  add_bos: true
+  add_eos: true
+  add_generation_prompt: false
+  shuffle: true
+  test_size: 0.05
+  # Optional: Hugging Face datasets cache directory
+  cache_dir: "/lustre/fsw/portfolios/coreai/users/shashankv/hf-data-cache"  # Optional: quick experiments limit
+  # max_samples: 10000 # remove this line to use all data
+
+logger:
+  log_dir: "logs"
+  wandb_enabled: true
+  tensorboard_enabled: false
+  mlflow_enabled: false
+  monitor_gpus: true
+  num_val_samples_to_print: 0
+  wandb:
+    project: "sft-tulu-3-sft"
+    name: "sft-tulu-3"
+  tensorboard:
+    log_dir: "tb_logs-sft-tulu-3-sft"
+  mlflow:
+    experiment_name: "sft-tulu-3-sft"
+    run_name: "sft-tulu-3-sft"
+  gpu_monitoring:
+    collection_interval: 10
+    flush_interval: 10
+
+cluster:
+  gpus_per_node: 8
+  num_nodes: 8

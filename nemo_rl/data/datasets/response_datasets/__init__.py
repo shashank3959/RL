@@ -26,6 +26,7 @@ from nemo_rl.data.datasets.response_datasets.openmathinstruct2 import (
 from nemo_rl.data.datasets.response_datasets.refcoco import RefCOCODataset
 from nemo_rl.data.datasets.response_datasets.response_dataset import ResponseDataset
 from nemo_rl.data.datasets.response_datasets.squad import SquadDataset
+from nemo_rl.data.datasets.response_datasets.tulu3 import Tulu3PreferenceDataset, Tulu3SftMixtureDataset
 from nemo_rl.data.datasets.utils import get_extra_kwargs
 
 
@@ -105,6 +106,16 @@ def load_response_dataset(data_config, seed: int = 42):
             train_data_path=data_config["train_data_path"],
             **extra_kwargs,
         )
+    # aliases (lowercase with underscores) for convenience in configs
+    elif dataset_name == "tulu3_preference":
+        base_dataset = Tulu3PreferenceDataset()
+    elif dataset_name == "tulu3_sft_mixture":
+        base_dataset = Tulu3SftMixtureDataset(
+            seed=seed,
+            test_size=data_config.get("test_size", 0.05),
+            prompt_file=data_config.get("prompt_file", None),
+            max_samples=data_config.get("max_samples", None),
+        )
     else:
         raise ValueError(
             f"Unsupported {dataset_name=}. "
@@ -125,4 +136,6 @@ __all__ = [
     "RefCOCODataset",
     "ResponseDataset",
     "SquadDataset",
+    "Tulu3PreferenceDataset",
+    "Tulu3SftMixtureDataset",
 ]
