@@ -38,6 +38,8 @@ class DataConfig(TypedDict):
     # This saturates CPU threads without consuming too much memory
     # However, setting it too high might cause memory issues for long seqlens.
     num_workers: NotRequired[int]
+    test_size: NotRequired[float]
+    max_samples: NotRequired[int]
 
 
 class MathDataConfig(DataConfig):

@@ -532,6 +532,15 @@ class RayWorkerGroup:
                 }
                 runtime_env["env_vars"]["VIRTUAL_ENV"] = py_executable
                 runtime_env["env_vars"]["UV_PROJECT_ENVIRONMENT"] = py_executable
+
+                # Ensure HF_HOME is passed to workers
+                if "HF_HOME" in os.environ:
+                    runtime_env["env_vars"]["HF_HOME"] = os.environ["HF_HOME"]
+                    print(f"DEBUG: Setting HF_HOME in worker env: {os.environ['HF_HOME']}")
+                if "HF_DATASETS_CACHE" in os.environ:
+                    runtime_env["env_vars"]["HF_DATASETS_CACHE"] = os.environ["HF_DATASETS_CACHE"]
+                    print(f"DEBUG: Setting HF_DATASETS_CACHE in worker env: {os.environ['HF_DATASETS_CACHE']}")
+
                 patch_transformers_module_dir(runtime_env["env_vars"])
 
                 extra_options = {"runtime_env": runtime_env, "name": name}
