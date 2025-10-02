@@ -192,15 +192,10 @@ def create_local_venv_on_each_node(py_executable: str, venv_name: str):
 # Need to set PYTHONPATH to include transformers downloaded modules.
 # Assuming the cache directory is the same cross venvs.
 def patch_transformers_module_dir(env_vars: dict[str, str]):
-    # Use HF_HOME from environment if available, otherwise fall back to default TRANSFORMERS_CACHE
-    hf_home = os.environ.get("HF_HOME")
-    if hf_home:
-        module_dir = os.path.join(hf_home, "modules")
-    else:
-        from transformers.utils.hub import TRANSFORMERS_CACHE
-        module_dir = os.path.join(TRANSFORMERS_CACHE, "..", "modules")
+    from transformers.utils.hub import TRANSFORMERS_CACHE
 
-    assert os.path.exists(module_dir), f"Module directory should exist: {module_dir}"
+    module_dir = os.path.join(TRANSFORMERS_CACHE, "..", "modules")
+    assert module_dir is not None, "TRANSFORMERS_CACHE should exist."
     if "PYTHONPATH" not in env_vars:
         env_vars["PYTHONPATH"] = module_dir
     else:
