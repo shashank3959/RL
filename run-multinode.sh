@@ -1,3 +1,4 @@
+#!/bin/bash
 # Run from the root of NeMo RL repo
 NUM_ACTOR_NODES=16
 ACCOUNT=coreai_dlalgo_llm
@@ -6,11 +7,12 @@ PARTITION=batch
 
 export WANDB_API_KEY=""
 export HF_TOKEN=""
-export HF_HOME="/lustre/fsw/portfolios/coreai/users/shashankv/hf_home"
-export HF_DATASETS_CACHE="/lustre/fsw/portfolios/coreai/users/shashankv/hf_home/datasets"
-export RESULTS_DIR="/lustre/fsw/portfolios/coreai/users/shashankv/results/sft_nemotron_49b"
+export HF_HOME="/lustre/fsw/portfolios/coreai/users/shashankv/RL/hf_home"
+export HF_DATASETS_CACHE="$HF_HOME/datasets"
+export RESULTS_DIR="/lustre/fsw/portfolios/coreai/users/shashankv/RL/results/sft_nemotron_49b"
+mkdir -p ${HF_HOME}/modules/transformers_modules
 
-COMMAND="NRL_FORCE_REBUILD_VENVS=true NCCL_NVLS_ENABLE=1 uv run examples/run_sft.py --config examples/configs/sft_nemotron_super_49b_tulu_v3.yaml ++data.cache_dir=${HF_HOME} cluster.num_nodes=${NUM_ACTOR_NODES} checkpointing.checkpoint_dir=${RESULTS_DIR}" \
+COMMAND="PYTHONPATH=${HF_HOME}/modules/transformers_modules:${HF_HOME}/modules:${PYTHONPATH} NRL_FORCE_REBUILD_VENVS=true NCCL_NVLS_ENABLE=1 uv run examples/run_sft.py --config examples/configs/sft_nemotron_super_49b_tulu_v3.yaml ++data.cache_dir=${HF_HOME} cluster.num_nodes=${NUM_ACTOR_NODES} checkpointing.checkpoint_dir=${RESULTS_DIR}" \
 CONTAINER="/lustre/fsw/portfolios/coreai/users/shashankv/containers/shashankv-nemo-rl-2509rc2.sqsh" \
 MOUNTS="/lustre:/lustre" \
 sbatch \

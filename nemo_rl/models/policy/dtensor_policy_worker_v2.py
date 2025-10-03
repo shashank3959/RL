@@ -189,19 +189,45 @@ class DTensorPolicyWorkerV2:
             )
             print(f"[Rank {self.rank}] Using FlashAttention2 for sequence packing")
 
-        model_config = AutoConfig.from_pretrained(
-            model_name,
-            # Always load the model in float32 to keep master weights in float32.
-            # Keeping the master weights in lower precision has shown to cause issues with convergence.
-            torch_dtype=torch.float32,
-            trust_remote_code=True,
-            **sliding_window_overwrite(
-                model_name
-            ),  # due to https://github.com/huggingface/transformers/issues/38002
-            attn_implementation="flash_attention_2"
-            if self.enable_seq_packing
-            else None,
-        )
+        is_rank0 = self.rank == 0
+        sync_status = [True, ""]  # [ok, error_msg]
+        if is_rank0:
+            try:
+                model_config = AutoConfig.from_pretrained(
+                    model_name,
+                    # Always load the model in float32 to keep master weights in float32.
+                    # Keeping the master weights in lower precision has shown to cause issues with convergence.
+                    torch_dtype=torch.float32,
+                    trust_remote_code=True,
+                    **sliding_window_overwrite(
+                        model_name
+                    ),  # due to https://github.com/huggingface/transformers/issues/38002
+                    attn_implementation="flash_attention_2"
+                    if self.enable_seq_packing
+                    else None,
+                )
+            except Exception as e:
+                sync_status[0] = False
+                sync_status[1] = f"Rank 0 AutoConfig.from_pretrained failed: {e}"
+                print(f"[Rank {self.rank}] {sync_status[1]}")
+        # Broadcast status from rank 0 to all ranks to avoid hangs if rank 0 fails
+        torch.distributed.broadcast_object_list(sync_status, src=0)
+        if not sync_status[0]:
+            raise RuntimeError(f"[Rank {self.rank}] {sync_status[1]}")
+        if not is_rank0:
+            model_config = AutoConfig.from_pretrained(
+                model_name,
+                # Always load the model in float32 to keep master weights in float32.
+                # Keeping the master weights in lower precision has shown to cause issues with convergence.
+                torch_dtype=torch.float32,
+                trust_remote_code=True,
+                **sliding_window_overwrite(
+                    model_name
+                ),  # due to https://github.com/huggingface/transformers/issues/38002
+                attn_implementation="flash_attention_2"
+                if self.enable_seq_packing
+                else None,
+            )
 
         # model_config.num_hidden_layers = 2
 
