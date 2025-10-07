@@ -51,7 +51,6 @@ def to_preference_data_format(
             {"rank": 0, "completion": [{"role": "assistant", "content": chosen}]},
             {"rank": 1, "completion": [{"role": "assistant", "content": rejected}]},
         ],
-        "task_name": "helpsteer3",  # Add task_name for GRPO compatibility
     }
 
 
