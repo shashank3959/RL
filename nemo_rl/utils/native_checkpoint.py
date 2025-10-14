@@ -135,75 +135,44 @@ class OptimizerState(Stateful):
             self.scheduler.load_state_dict(state_dict["sched"])
 
 
-def save_checkpoint(
-    model: torch.nn.Module,
-    weights_path: str,
-    optimizer: Optional[torch.optim.Optimizer] = None,
-    scheduler: Optional[Any] = None,
-    optimizer_path: Optional[str] = None,
-    tokenizer: Optional[Any] = None,
-    tokenizer_path: Optional[str] = None,
-) -> None:
-    """Save a checkpoint of the model and optionally optimizer state.
+from nemo_automodel import NeMoAutoModelForCausalLM
+from nemo_rl.utils.automodel_checkpoint import (
+    load_checkpoint,
+    save_checkpoint,
+)
+
+def load_model_from_checkpoint(
+    checkpoint_path: str,
+    base_model_path: Optional[str] = None,
+) -> NeMoAutoModelForCausalLM:
+    """Load a VLM model from a checkpoint.
 
     Args:
-        model: The PyTorch model to save
-        weights_path: Path to save model weights
-        optimizer: Optional optimizer to save
-        scheduler: Optional scheduler to save
-        optimizer_path: Path to save optimizer state (required if optimizer provided)
-        tokenizer: Optional tokenizer to save
-        tokenizer_path: Path to save tokenizer state (required if tokenizer provided)
+        checkpoint_path: Path to the checkpoint directory
+        base_model_path: Path to the base model checkpoint. This can either be something like 'google/gemma-3-4b-it' or a local path to the base model. This is not required if restoring from a consolidated HF checkpoint.
+        use_liger_kernel: Whether to use Liger kernel optimizations
+
+    Returns:
+        Loaded NeMoAutoModelForCausalLM model
     """
-    model_state = {"model": ModelState(model)}
-    dcp.save(model_state, checkpoint_id=weights_path)
+    # initialize distributed
+    device = "cpu"
+    if base_model_path is None:
+        raise ValueError("base_model_path is required if not restoring from a consolidated HF checkpoint.")
 
-    if optimizer is not None:
-        if optimizer_path is None:
-            raise ValueError(
-                "optimizer_path must be provided when saving optimizer state"
-            )
-        optimizer_state = {"optim": OptimizerState(model, optimizer, scheduler)}
-        dcp.save(optimizer_state, checkpoint_id=optimizer_path)
+    model = NeMoAutoModelForCausalLM.from_pretrained(
+        base_model_path,
+        torch_dtype=torch.bfloat16,
+        use_liger_kernel=False,
+        trust_remote_code=True,
+    ).to(device)
 
-    if tokenizer is not None:
-        if tokenizer_path is None:
-            raise ValueError(
-                "tokenizer_path must be provided when saving tokenizer state"
-            )
-        print(f"Saving tokenizer (or processor) to {tokenizer_path}")
-        tokenizer.save_pretrained(tokenizer_path)
-
-
-def load_checkpoint(
-    model: torch.nn.Module,
-    weights_path: str,
-    optimizer: Optional[torch.optim.Optimizer] = None,
-    scheduler: Optional[Any] = None,
-    optimizer_path: Optional[str] = None,
-) -> None:
-    """Load a model weights and optionally optimizer state.
-
-    Args:
-        model: The PyTorch model whose weights to update
-        weights_path: Path to load model weights from
-        optimizer: Optional optimizer to load state into
-        scheduler: Optional scheduler to load state into
-        optimizer_path: Path to load optimizer state from (required if optimizer provided)
-    """
-    print(f"Loading weights from {weights_path}")
-    model_state_dict = {"model": ModelState(model)}
-    dcp.load(state_dict=model_state_dict, checkpoint_id=weights_path)
-
-    if optimizer is not None:
-        if optimizer_path is None:
-            raise ValueError(
-                "optimizer_path must be provided when loading optimizer state"
-            )
-        print(f"Loading optimizer from {optimizer_path}")
-        optimizer_state_dict = {"optim": OptimizerState(model, optimizer, scheduler)}
-        dcp.load(state_dict=optimizer_state_dict, checkpoint_id=optimizer_path)
-
+    load_checkpoint(
+        model=model,
+        weights_path=checkpoint_path,
+    )
+    print(f"✅ Model loaded successfully from {checkpoint_path}")
+    return model
 
 def convert_dcp_to_hf(
     dcp_ckpt_path: str,
@@ -237,16 +206,17 @@ def convert_dcp_to_hf(
         )
 
     os.makedirs(hf_ckpt_path, exist_ok=True)
-    weights_path = os.path.join(hf_ckpt_path, "pytorch_model.bin")
-    dcp_to_torch_save(dcp_ckpt_path, weights_path)
 
-    # Need to reload and save b/c the state dict is scoped inside the model key {"model": actual_state_dict}
-    state_dict = torch.load(weights_path)
-    assert set(state_dict.keys()) == {"model"}, (
-        f"We expect that the state dict only has the top level model key, but found: {state_dict.keys()}"
+    model = load_model_from_checkpoint(dcp_ckpt_path, model_name_or_path)
+
+    save_checkpoint(
+        model=model,
+        weights_path=hf_ckpt_path,
+        model_state_dict_keys=model.state_dict().keys(),
+        model_save_format="safetensors",
+        save_consolidated=True
     )
-    torch.save(state_dict["model"], weights_path)
-
+    
     config = AutoConfig.from_pretrained(model_name_or_path, trust_remote_code=True)
     config.save_pretrained(hf_ckpt_path)
 
@@ -260,5 +230,4 @@ def convert_dcp_to_hf(
         tokenizer_name_or_path, trust_remote_code=True
     )
     tokenizer.save_pretrained(hf_ckpt_path)
-
     return hf_ckpt_path
